@@ -1,0 +1,78 @@
+name: Flutter Build
+
+# Se ejecutará en los eventos push y pull request a la rama principal.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+# Definir trabajos en el workflow
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Utiliza una máquina Ubuntu
+
+    steps:
+    # 1. Configurar GitHub Actions en el repositorio
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # 2. Instalar Flutter
+    - name: Install Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.0.0'  # Cambia a la versión que necesitas
+
+    # 3. Obtener las dependencias de Dart y Flutter
+    - name: Get dependencies
+      run: flutter pub get
+
+    # 4. Ejecutar pruebas unitarias si las tienes (opcional)
+    - name: Run tests
+      run: flutter test
+
+    # 5. Construir el APK para Android
+    - name: Build APK
+      run: flutter build apk --release
+
+    # 6. Guardar los artefactos construidos
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: apk
+        path: build/app/outputs/flutter-apk/app-release.apk
+
+  ios-build:
+    runs-on: macos-latest  # Se requiere macOS para construir apps de iOS
+
+    steps:
+    # 1. Configurar GitHub Actions en el repositorio
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # 2. Instalar Flutter
+    - name: Install Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.0.0'  # Cambia a la versión que necesitas
+
+    # 3. Obtener las dependencias de Dart y Flutter
+    - name: Get dependencies
+      run: flutter pub get
+
+    # 4. Ejecutar pruebas unitarias si las tienes (opcional)
+    - name: Run tests
+      run: flutter test
+
+    # 5. Construir el IPA para iOS
+    - name: Build IPA
+      run: flutter build ios --release --no-codesign
+
+    # 6. Guardar los artefactos construidos
+    - name: Upload IPA
+      uses: actions/upload-artifact@v3
+      with:
+        name: ipa
+        path: build/ios/ipa/release/app.ipa
