@@ -32,27 +32,3 @@ jobs:
       with:
         name: apk
         path: build/app/outputs/flutter-apk/app-release.apk
-
-  build_ios:
-    runs-on: macos-latest
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-
-    - name: Install Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.24.0'  # Actualización a la versión 3.24.0
-
-    - name: Get dependencies
-      run: flutter pub get
-
-    - name: Build IPA
-      run: flutter build ios --release --no-codesign
-
-    - name: Upload IPA as artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: ipa
-        path: build/ios/ipa/release/app.ipa
