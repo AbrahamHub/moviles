@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:tutorial/pages/spash_screen.dart';
 
 void main() {
-  runApp(const MaterialApp(
-    home: Home(),
-  ));
+  runApp(const MyApp());
 }
 
-class Home extends StatelessWidget {
-  const Home({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text('MyApp'),
-      ),
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: MySplashScreen(),
     );
   }
 }
