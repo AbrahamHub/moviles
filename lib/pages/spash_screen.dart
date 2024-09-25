@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tutorial/pages/register.dart';
 import 'package:tutorial/pages/sign_in.dart';
 import 'package:tutorial/utils/colors.dart';
 
@@ -41,7 +42,7 @@ class MySplashScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     Text(
-                      "Welcome to the\nstorage multiverse!",
+                      "¡Bienvenida/o al\nmultiverso del almacenamiento!",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
@@ -53,7 +54,7 @@ class MySplashScreen extends StatelessWidget {
                       height: 20,
                     ),
                     Text(
-                      "Begin with us, register now!\nor instead if you have already an account\nlog in!",
+                      "¡Inicia con nosotros, regístrate!\no si ya tienes una cuenta\ninicia sesión",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 16,
@@ -95,13 +96,25 @@ class MySplashScreen extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(15),
                                 ),
                                 child: Center(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const RegisterPage(),
+                                        ),
+                                      );
+                                    },
                                     child: Text(
-                                  "Register",
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 20,
-                                      color: textColor1),
-                                )),
+                                      "Registrarse",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 20,
+                                        color: textColor1,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
                               const Spacer(),
                               GestureDetector(
@@ -113,7 +126,7 @@ class MySplashScreen extends StatelessWidget {
                                       ));
                                 },
                                 child: Text(
-                                  "Sign In",
+                                  "Inicia Sesión",
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 20,

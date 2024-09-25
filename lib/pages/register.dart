@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:tutorial/pages/register.dart';
+import 'package:tutorial/pages/sign_in.dart';
 import 'package:tutorial/utils/colors.dart';
 import 'package:flutter/gestures.dart';
-import 'package:tutorial/database/user_db.dart';
-import 'package:tutorial/models/user.dart';
+import 'package:tutorial/database/user_db.dart'; // Import UserDB
+import 'package:tutorial/models/user.dart'; // Import User model
 
-class SignIn extends StatelessWidget {
-  const SignIn({super.key});
+class RegisterPage extends StatelessWidget {
+  const RegisterPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
 
     final TextEditingController usernameController = TextEditingController();
+    final TextEditingController emailController = TextEditingController();
     final TextEditingController passwordController = TextEditingController();
+    final TextEditingController confirmPasswordController = TextEditingController();
 
     return Scaffold(
       body: Container(
@@ -28,7 +30,7 @@ class SignIn extends StatelessWidget {
             children: [
               SizedBox(height: size.height * 0.03),
               Text(
-                "¡Hola de nuevo!",
+                "¡Bienvenida/o!",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
@@ -38,26 +40,16 @@ class SignIn extends StatelessWidget {
               ),
               const SizedBox(height: 15),
               Text(
-                "Bienvenida/o de regreso",
+                "Únete a nosotros con una cuenta nueva",
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 17, color: textColor2, height: 1.2),
               ),
               SizedBox(height: size.height * 0.04),
               myTextInput("Nombre de Usuario", Colors.white, usernameController),
+              myTextInput("Correo electrónico", Colors.white, emailController),
               myTextInput("Contraseña", Colors.black26, passwordController, isObscure: true),
+              myTextInput("Confirmar Contraseña", Colors.black26, confirmPasswordController, isObscure: true),
               const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.center,
-                child: Text(
-                  "Contraseña de Recuperación",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: textColor2,
-                  ),
-                ),
-              ),
               SizedBox(height: size.height * 0.04),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 25),
@@ -65,26 +57,21 @@ class SignIn extends StatelessWidget {
                   children: [
                     GestureDetector(
                       onTap: () async {
-                        final userDB = UserDB();
-                        final user = await userDB.fetchByUsername(usernameController.text);
+                        // Handle registration logic
+                        if (passwordController.text == confirmPasswordController.text) {
+                          final userDB = UserDB();
+                          await userDB.create(
+                            username: usernameController.text,
+                            email: emailController.text,
+                            password: passwordController.text,
+                          );
 
-                        if (user != null) {
-                          if (user.password == passwordController.text) {
-                            // TODO:
-                            // ENVIAR AL MENÚ PRINCIPAL
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Bienvenido, ${user.username}!')),
-                            );
-                            // TODO:
-                            // ENVÍA AL MENÚ PRINCIPAL
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Contraseña incorrecta')),
-                            );
-                          }
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Usuario registrado con éxito')),
+                          );
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Usuario no registrado')),
+                            SnackBar(content: Text('Las contraseñas no coinciden')),
                           );
                         }
                       },
@@ -97,7 +84,7 @@ class SignIn extends StatelessWidget {
                         ),
                         child: const Center(
                           child: Text(
-                            "Inicia Sesión",
+                            "Registrarse",
                             style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
@@ -107,41 +94,9 @@ class SignIn extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: size.height * 0.06),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          height: 2,
-                          width: size.width * 0.25,
-                          color: Colors.black12,
-                        ),
-                        const Text(
-                          "  O ingresa con  ",
-                          style: TextStyle(
-                              color: Color(0xff6F6B7A),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16),
-                        ),
-                        Container(
-                          height: 2,
-                          width: size.width * 0.25,
-                          color: Colors.black12,
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: size.height * 0.06),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        socialIcon("assets/images/google.png"),
-                        socialIcon("assets/images/google.png"),
-                        socialIcon("assets/images/google.png"),
-                      ],
-                    ),
-                    SizedBox(height: size.height * 0.07),
                     Text.rich(
                       TextSpan(
-                        text: "¿Aún no eres miembro?  ",
+                        text: "¿Ya eres miembro? ",
                         style: TextStyle(
                           color: textColor2,
                           fontWeight: FontWeight.bold,
@@ -149,7 +104,7 @@ class SignIn extends StatelessWidget {
                         ),
                         children: [
                           TextSpan(
-                            text: "Regístrate",
+                            text: "Inicia sesión",
                             style: TextStyle(
                               color: Colors.blue,
                               fontWeight: FontWeight.bold,
@@ -158,7 +113,7 @@ class SignIn extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const RegisterPage(),
+                                  builder: (context) => const SignIn(),
                                 ),
                               );
                             },
@@ -176,40 +131,14 @@ class SignIn extends StatelessWidget {
     );
   }
 
-  Container socialIcon(image) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 32,
-        vertical: 15,
-      ),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white,
-          width: 2,
-        ),
-      ),
-      child: Image.asset(
-        image,
-        height: 35,
-      ),
-    );
-  }
-
   Container myTextInput(String hint, Color color, TextEditingController controller, {bool isObscure = false}) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 25,
-        vertical: 10,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
       child: TextField(
-        controller: controller,
-        obscureText: isObscure,
+        controller: controller, // Set controller
+        obscureText: isObscure, // Handle obscurity
         decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 22,
-          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
           fillColor: Colors.white,
           filled: true,
           border: OutlineInputBorder(
