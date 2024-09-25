@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tutorial/pages/register.dart';
+import 'package:tutorial/pages/home.dart';
 import 'package:tutorial/utils/colors.dart';
 import 'package:flutter/gestures.dart';
 import 'package:tutorial/database/user_db.dart';
@@ -70,13 +71,17 @@ class SignIn extends StatelessWidget {
 
                         if (user != null) {
                           if (user.password == passwordController.text) {
-                            // TODO:
-                            // ENVIAR AL MENÚ PRINCIPAL
+
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text('Bienvenido, ${user.username}!')),
                             );
-                            // TODO:
-                            // ENVÍA AL MENÚ PRINCIPAL
+                            //Envía a Menú Principal
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const HomePage(),
+                              ),
+                            );
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text('Contraseña incorrecta')),
