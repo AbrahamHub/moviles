@@ -12,8 +12,8 @@ class UserDB {
       "email" TEXT NOT NULL,
       "password" TEXT NOT NULL,
       "created_at" INTEGER NOT NULL DEFAULT (cast(strftime('%s', 'now') AS INTEGER)),
-      "updated_at" INTEGER,
-   );""");
+      "updated_at" INTEGER
+    );""");  // Corregido: se quitó la coma antes del paréntesis de cierre
   }
 
   Future<int> create({required String username, required String email, required String password}) async {
@@ -25,7 +25,7 @@ class UserDB {
       'email': email,
       'password': password,
       'created_at': DateTime.now().millisecondsSinceEpoch,
-      'updated:at': null,
+      'updated_at': null,  // Corregido: la clave era 'updated:at' en vez de 'updated_at'
     };
 
     return await db.insert(tableName, user);
@@ -67,4 +67,5 @@ class UserDB {
     return null; // Return null if no user is found
   }
 }
+
 

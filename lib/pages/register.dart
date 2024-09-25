@@ -69,6 +69,14 @@ class RegisterPage extends StatelessWidget {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('Usuario registrado con éxito')),
                           );
+
+                          // Después de registrar, navega a la página de Sign In
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SignIn(),
+                            ),
+                          );
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('Las contraseñas no coinciden')),
