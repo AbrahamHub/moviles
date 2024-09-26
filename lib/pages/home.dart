@@ -19,7 +19,7 @@ class HomePage extends StatelessWidget {
         actions: [
           IconButton(
             icon: const CircleAvatar(
-              backgroundImage: NetworkImage('https://www.example.com/user-profile.jpg'),
+              backgroundImage: NetworkImage('https://media.istockphoto.com/id/1337144146/vector/default-avatar-profile-icon-vector.jpg?s=612x612&w=0&k=20&c=BIbFwuv7FxTWvh5S3vB6bkT0Qv8Vn8N5Ffseq84ClGI='),
             ),
             onPressed: () {
               // Acción al presionar la imagen de usuario
