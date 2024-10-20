@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "577915908171",
+    "project_id": "photoguard-e9739",
+    "storage_bucket": "photoguard-e9739.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:577915908171:android:889c4423fe02e78d199dce",
+        "android_client_info": {
+          "package_name": "com.photoguard.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCUiujEiRBziu5Bzdox0NFu9565DwYzFtk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:tutorial/pages/register.dart';
-import 'package:tutorial/pages/sign_in.dart';
-import 'package:tutorial/utils/colors.dart';
+import 'package:PhotoGuard/pages/register.dart';
+import 'package:PhotoGuard/pages/sign_in.dart';
+import 'package:PhotoGuard/utils/colors.dart';
 
 class MySplashScreen extends StatelessWidget {
   const MySplashScreen({super.key});

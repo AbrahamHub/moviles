@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:tutorial/pages/spash_screen.dart';
-import 'package:tutorial/database/database_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:PhotoGuard/pages/spash_screen.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final dbService = DatabaseService();
-  await dbService.database;
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(const MyApp());
 }
 

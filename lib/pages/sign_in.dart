@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:tutorial/pages/register.dart';
-import 'package:tutorial/pages/home.dart';
-import 'package:tutorial/utils/colors.dart';
+import 'package:PhotoGuard/pages/register.dart';
+import 'package:PhotoGuard/pages/home.dart';
+import 'package:PhotoGuard/utils/colors.dart';
 import 'package:flutter/gestures.dart';
-import 'package:tutorial/database/user_db.dart';
-import 'package:tutorial/models/user.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
+import 'package:google_sign_in/google_sign_in.dart'; // Import Google Sign In
 
 class SignIn extends StatelessWidget {
   const SignIn({super.key});
@@ -66,30 +66,22 @@ class SignIn extends StatelessWidget {
                   children: [
                     GestureDetector(
                       onTap: () async {
-                        final userDB = UserDB();
-                        final user = await userDB.fetchByUsername(usernameController.text);
-
+                        // Aquí puedes agregar lógica para iniciar sesión con Google.
+                        User? user = await signInWithGoogle();
                         if (user != null) {
-                          if (user.password == passwordController.text) {
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Bienvenido, ${user.username}!')),
-                            );
-                            //Envía a Menú Principal
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const HomePage(),
-                              ),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Contraseña incorrecta')),
-                            );
-                          }
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Bienvenido, ${user.displayName}!')),
+                          );
+                          // Envía a Menú Principal
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const HomePage(),
+                            ),
+                          );
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Usuario no registrado')),
+                            SnackBar(content: Text('Error al iniciar sesión con Google')),
                           );
                         }
                       },
@@ -102,7 +94,7 @@ class SignIn extends StatelessWidget {
                         ),
                         child: const Center(
                           child: Text(
-                            "Inicia Sesión",
+                            "Iniciar Sesión",
                             style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
@@ -138,9 +130,28 @@ class SignIn extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        socialIcon("assets/images/google.png"),
-                        socialIcon("assets/images/google.png"),
-                        socialIcon("assets/images/google.png"),
+                        GestureDetector(
+                          onTap: () async {
+                            User? user = await signInWithGoogle();
+                            if (user != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Bienvenido, ${user.displayName}!')),
+                              );
+                              // Envía a Menú Principal
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const HomePage(),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error al iniciar sesión con Google')),
+                              );
+                            }
+                          },
+                          child: socialIcon("assets/images/google.png"),
+                        ),
                       ],
                     ),
                     SizedBox(height: size.height * 0.07),
@@ -181,7 +192,28 @@ class SignIn extends StatelessWidget {
     );
   }
 
-  Container socialIcon(image) {
+  Future<User?> signInWithGoogle() async {
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      if (googleUser == null) return null; // El usuario canceló el inicio de sesión.
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      return userCredential.user; // Devuelve el usuario autenticado
+    } catch (e) {
+      print(e); // Manejar errores de autenticación
+      return null;
+    }
+  }
+
+  Container socialIcon(String image) {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: 32,
