@@ -7,10 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: ".env");
-  // acceso a las claves desde la app
-  // ejemplo:
-  // final apiKey = dotenv.env['FIREBASE_API_KEY'];
+  await dotenv.load(fileName: "assets/config/.env");
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
