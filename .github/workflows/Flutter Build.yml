@@ -27,7 +27,8 @@ jobs:
     - name: Install Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.5.0'
+        flutter-version: '3.24.5'
+        channel: stable
 
     - name: Get dependencies
       run: flutter pub get
@@ -59,7 +60,7 @@ jobs:
     - name: Install Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.5.0'
+        flutter-version: '3.24.5'
 
     - name: Set up CocoaPods
       run: sudo gem install cocoapods
