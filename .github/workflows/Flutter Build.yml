@@ -16,16 +16,18 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
+    - name: Test connection to Flutter releases
+      run: |
+        curl "https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json" || exit 1
+
+    - name: Fix Flutter SDK folder permissions
+      run: |
+        git config --global --add safe.directory /tmp/flutter
+
     - name: Install Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.4.0' # Versión compatible de Flutter
-
-    - name: Set up Java on Windows
-      uses: actions/setup-java@v3
-      with:
-        distribution: 'zulu' # Configura Java para Windows (requisito de Gradle)
-        java-version: '17'
+        flutter-version: '3.5.0'
 
     - name: Get dependencies
       run: flutter pub get
@@ -46,10 +48,18 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
+    - name: Test connection to Flutter releases
+      run: |
+        curl "https://storage.googleapis.com/flutter_infra_release/releases/releases_macos.json" || exit 1
+
+    - name: Fix Flutter SDK folder permissions
+      run: |
+        git config --global --add safe.directory /tmp/flutter
+
     - name: Install Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.4.0' # Versión compatible de Flutter
+        flutter-version: '3.5.0'
 
     - name: Set up CocoaPods
       run: sudo gem install cocoapods
