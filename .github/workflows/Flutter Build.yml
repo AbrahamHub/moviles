@@ -10,7 +10,7 @@ on:
 
 jobs:
   build_android:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
     - name: Checkout repository
@@ -19,7 +19,13 @@ jobs:
     - name: Install Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '[3.4.5, 3.5.0]'  # Actualización a la versión 3.24.0
+        flutter-version: '3.5.0' # Versión compatible de Flutter
+
+    - name: Set up Java on Windows
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'zulu' # Configura Java para Windows (requisito de Gradle)
+        java-version: '17'
 
     - name: Get dependencies
       run: flutter pub get
@@ -32,3 +38,30 @@ jobs:
       with:
         name: apk
         path: build/app/outputs/flutter-apk/app-release.apk
+
+  build_ios:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.5.0' # Versión compatible de Flutter
+
+    - name: Set up CocoaPods
+      run: sudo gem install cocoapods
+
+    - name: Get dependencies
+      run: flutter pub get
+
+    - name: Build iOS
+      run: flutter build ios --release
+
+    - name: Upload iOS App as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ios
+        path: build/ios/ipa
