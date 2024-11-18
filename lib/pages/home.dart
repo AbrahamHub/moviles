@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:PhotoGuard/pages/ProfilePage.dart'; // Asegúrate de ajustar la ruta correcta
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,11 +19,24 @@ class _HomePageState extends State<HomePage> {
   List<String> accessibleFolders = [];
   Map<String, List<File>> folderImages = {};
   List<AssetEntity> galleryImages = [];
+  double _uploadProgress = 0.0;
 
-  // Solicita permisos de almacenamiento local
+  @override
+  void initState() {
+    super.initState();
+    _initializeFirebase();
+  }
+
+  Future<void> _initializeFirebase() async {
+    await Firebase.initializeApp();
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      await FirebaseAuth.instance.signInAnonymously();
+    }
+  }
+
   Future<void> _requestStoragePermission() async {
     if (Platform.isIOS) {
-      // Solicitar permiso de fotos en iOS
       final PermissionState result = await PhotoManager.requestPermissionExtend();
       if (result.isAuth) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -32,7 +48,6 @@ class _HomePageState extends State<HomePage> {
         );
       }
     } else {
-      // Solicitar permiso de almacenamiento en Android
       var status = await Permission.storage.status;
       if (status.isDenied || status.isPermanentlyDenied) {
         status = await Permission.storage.request();
@@ -50,7 +65,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Solicita permisos y lista carpetas
   Future<void> _requestPermissionAndLoadFolders() async {
     if (Platform.isIOS) {
       final PermissionState result = await PhotoManager.requestPermissionExtend();
@@ -77,7 +91,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Abre un selector de carpetas en Android
   Future<void> _loadAndroidFolder() async {
     String? selectedFolder = await FilePicker.platform.getDirectoryPath();
     if (selectedFolder != null) {
@@ -85,7 +98,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Carga imágenes desde una carpeta específica
   void _loadImagesFromFolder(String folderPath) {
     final folder = Directory(folderPath);
     final images = folder
@@ -103,19 +115,115 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  // Cargar imágenes desde la galería en iOS
   Future<void> _loadDefaultIOSGallery() async {
+    final PermissionState ps = await PhotoManager.requestPermissionExtend();
+    if (!ps.isAuth) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Permiso no otorgado para acceder a la galería')),
+      );
+      return;
+    }
+
     final List<AssetPathEntity> albums = await PhotoManager.getAssetPathList(
       type: RequestType.image,
     );
 
     if (albums.isNotEmpty) {
       final List<AssetEntity> images = await albums[0].getAssetListPaged(
-        page: 0, // Primera página
-        size: 100, // Máximo 100 imágenes por página
+        page: 0,
+        size: 100,
       );
       setState(() {
         galleryImages = images;
+      });
+    }
+  }
+
+  Future<void> _backupImagesToFirebase() async {
+    if ((folderImages.isEmpty && Platform.isAndroid) ||
+        (galleryImages.isEmpty && Platform.isIOS)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay imágenes para respaldar')),
+      );
+      return;
+    }
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Usuario no autenticado')),
+        );
+        return;
+      }
+
+      final userId = user.uid;
+      final storage = FirebaseStorage.instanceFor(
+          bucket: 'gs://photoguard-e9739.firebasestorage.app');
+
+      int totalImages = Platform.isAndroid
+          ? folderImages.values.fold(0, (sum, list) => sum + list.length)
+          : galleryImages.length;
+      int uploadedImages = 0;
+
+      if (Platform.isAndroid) {
+        // Procesamos las imágenes de folderImages para Android
+        for (var folder in folderImages.values) {
+          for (var image in folder) {
+            final fileName = image.path.split('/').last;
+            final ref = storage.ref('$userId/$fileName');
+
+            UploadTask uploadTask = ref.putFile(image);
+
+            uploadTask.snapshotEvents.listen((event) {
+              setState(() {
+                _uploadProgress = (uploadedImages +
+                    event.bytesTransferred / event.totalBytes) /
+                    totalImages;
+              });
+            });
+
+            await uploadTask;
+
+            uploadedImages++;
+          }
+        }
+      } else if (Platform.isIOS) {
+        // Procesamos las imágenes de galleryImages para iOS
+        for (var asset in galleryImages) {
+          final file = await asset.file;
+          if (file != null) {
+            final fileName = file.path.split('/').last;
+            final ref = storage.ref('$userId/$fileName');
+
+            UploadTask uploadTask = ref.putFile(file);
+
+            uploadTask.snapshotEvents.listen((event) {
+              setState(() {
+                _uploadProgress = (uploadedImages +
+                    event.bytesTransferred / event.totalBytes) /
+                    totalImages;
+              });
+            });
+
+            await uploadTask;
+
+            uploadedImages++;
+          }
+        }
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Copia de seguridad completada')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error durante la copia de seguridad: $e')),
+      );
+    } finally {
+      setState(() {
+        _uploadProgress = 0.0;
       });
     }
   }
@@ -175,33 +283,26 @@ class _HomePageState extends State<HomePage> {
               onTap: _requestStoragePermission,
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library, color: Colors.red), // Ícono representativo de Google Fotos
+              leading: const Icon(Icons.photo_library, color: Colors.red),
               title: const Text('Google Fotos'),
               onTap: _requestStoragePermission,
             ),
             ListTile(
-              leading: const Icon(Icons.cloud, color: Colors.blue), // Ícono representativo de Microsoft OneDrive
+              leading: const Icon(Icons.cloud, color: Colors.blue),
               title: const Text('Microsoft OneDrive'),
               onTap: _requestStoragePermission,
             ),
-            if (Platform.isAndroid) ...accessibleFolders.map((folderPath) {
-              String folderName = folderPath.split('/').last;
-              return ListTile(
-                leading: const Icon(Icons.folder, color: Colors.purple),
-                title: Text(folderName),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => FilesPage(
-                        folderName: folderName,
-                        images: folderImages[folderPath] ?? [],
-                      ),
-                    ),
-                  );
-                },
-              );
-            }).toList(),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.backup, color: Colors.green),
+              title: const Text('Realizar copia de seguridad'),
+              onTap: _backupImagesToFirebase,
+            ),
+            if (_uploadProgress > 0)
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: LinearProgressIndicator(value: _uploadProgress),
+              ),
           ],
         ),
       ),
@@ -240,11 +341,13 @@ class _HomePageState extends State<HomePage> {
       )
           : galleryImages.isEmpty
           ? const Center(
-        child: Text('No hay imágenes disponibles. Presiona refrescar o conceda permisos'),
+        child:
+        Text('Presiona el ícono de refrescar para cargar imágenes'),
       )
           : GridView.builder(
         padding: const EdgeInsets.all(8.0),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        gridDelegate:
+        const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           crossAxisSpacing: 4.0,
           mainAxisSpacing: 4.0,
@@ -254,14 +357,16 @@ class _HomePageState extends State<HomePage> {
           return FutureBuilder<File?>(
             future: galleryImages[index].file,
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.done &&
+              if (snapshot.connectionState ==
+                  ConnectionState.done &&
                   snapshot.data != null) {
                 return Image.file(
                   snapshot.data!,
                   fit: BoxFit.cover,
                 );
               }
-              return const Center(child: CircularProgressIndicator());
+              return const Center(
+                  child: CircularProgressIndicator());
             },
           );
         },
@@ -309,8 +414,8 @@ class FilesPage extends StatelessWidget {
   }
 }
 
-void main() {
-  runApp(const MaterialApp(
-    home: HomePage(),
-  ));
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  runApp(const MaterialApp(home: HomePage()));
 }
