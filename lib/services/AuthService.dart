@@ -50,7 +50,7 @@ class AuthService {
       );
       // Procesar el token devuelto por Microsoft
       // ...
-      return UserModel(uid: "microsoft_uid", name: "Microsoft User", email: "user@microsoft.com");
+      return UserModel(uid: "microsoft_uid", email: "user@microsoft.com");
     } catch (e) {
       print(e);
       return null;

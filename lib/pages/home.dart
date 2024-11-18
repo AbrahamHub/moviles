@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:PhotoGuard/pages/ProfilePage.dart'; // Asegúrate de ajustar la ruta correcta
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,10 +17,42 @@ class _HomePageState extends State<HomePage> {
   Map<String, List<File>> folderImages = {};
   List<AssetEntity> galleryImages = [];
 
+  // Solicita permisos de almacenamiento local
+  Future<void> _requestStoragePermission() async {
+    if (Platform.isIOS) {
+      // Solicitar permiso de fotos en iOS
+      final PermissionState result = await PhotoManager.requestPermissionExtend();
+      if (result.isAuth) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permiso de fotos concedido')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permiso de fotos denegado')),
+        );
+      }
+    } else {
+      // Solicitar permiso de almacenamiento en Android
+      var status = await Permission.storage.status;
+      if (status.isDenied || status.isPermanentlyDenied) {
+        status = await Permission.storage.request();
+      }
+
+      if (status.isGranted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permiso de almacenamiento concedido')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permiso de almacenamiento denegado')),
+        );
+      }
+    }
+  }
+
   // Solicita permisos y lista carpetas
   Future<void> _requestPermissionAndLoadFolders() async {
     if (Platform.isIOS) {
-      // Solicitar permiso de fotos en iOS
       final PermissionState result = await PhotoManager.requestPermissionExtend();
       if (result.isAuth) {
         _loadDefaultIOSGallery();
@@ -29,7 +62,6 @@ class _HomePageState extends State<HomePage> {
         );
       }
     } else {
-      // Solicitar permiso de almacenamiento en Android
       var status = await Permission.storage.status;
       if (status.isDenied || status.isPermanentlyDenied) {
         await Permission.storage.request();
@@ -109,12 +141,51 @@ class _HomePageState extends State<HomePage> {
                 color: Colors.deepPurple,
               ),
               child: Text(
-                'Directorios',
+                'PhotoGuard',
                 style: TextStyle(color: Colors.white, fontSize: 24),
               ),
             ),
+            ListTile(
+              leading: const Icon(Icons.person, color: Colors.purple),
+              title: const Text('Perfil'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfilePage(),
+                  ),
+                );
+              },
+            ),
+            const Divider(),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+              child: Text(
+                'Conceder acceso a:',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black54,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.storage, color: Colors.purple),
+              title: const Text('Almacenamiento local'),
+              onTap: _requestStoragePermission,
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Colors.red), // Ícono representativo de Google Fotos
+              title: const Text('Google Fotos'),
+              onTap: _requestStoragePermission,
+            ),
+            ListTile(
+              leading: const Icon(Icons.cloud, color: Colors.blue), // Ícono representativo de Microsoft OneDrive
+              title: const Text('Microsoft OneDrive'),
+              onTap: _requestStoragePermission,
+            ),
             if (Platform.isAndroid) ...accessibleFolders.map((folderPath) {
-              String folderName = folderPath.split('/').last; // Extrae el nombre de la carpeta
+              String folderName = folderPath.split('/').last;
               return ListTile(
                 leading: const Icon(Icons.folder, color: Colors.purple),
                 title: Text(folderName),
@@ -169,7 +240,7 @@ class _HomePageState extends State<HomePage> {
       )
           : galleryImages.isEmpty
           ? const Center(
-        child: Text('No hay imágenes disponibles.'),
+        child: Text('No hay imágenes disponibles. Presiona refrescar o conceda permisos'),
       )
           : GridView.builder(
         padding: const EdgeInsets.all(8.0),
