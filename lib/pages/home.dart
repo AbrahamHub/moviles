@@ -7,7 +7,7 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Home'),
+        title: const Text('Archivos'),
         leading: Builder(
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu),

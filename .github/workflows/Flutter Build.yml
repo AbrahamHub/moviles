@@ -10,16 +10,25 @@ on:
 
 jobs:
   build_android:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
 
+    - name: Test connection to Flutter releases
+      run: |
+        curl "https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json" || exit 1
+
+    - name: Fix Flutter SDK folder permissions
+      run: |
+        git config --global --add safe.directory /tmp/flutter
+
     - name: Install Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.24.0'  # Actualización a la versión 3.24.0
+        flutter-version: '3.24.5'
+        channel: stable
 
     - name: Get dependencies
       run: flutter pub get
@@ -32,3 +41,38 @@ jobs:
       with:
         name: apk
         path: build/app/outputs/flutter-apk/app-release.apk
+
+  build_ios:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Test connection to Flutter releases
+      run: |
+        curl "https://storage.googleapis.com/flutter_infra_release/releases/releases_macos.json" || exit 1
+
+    - name: Fix Flutter SDK folder permissions
+      run: |
+        git config --global --add safe.directory /tmp/flutter
+
+    - name: Install Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.5'
+
+    - name: Set up CocoaPods
+      run: sudo gem install cocoapods
+
+    - name: Get dependencies
+      run: flutter pub get
+
+    - name: Build iOS
+      run: flutter build ios --release
+
+    - name: Upload iOS App as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ios
+        path: build/ios/ipa
