@@ -5,17 +5,23 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Tutorial</string>
+	<string>PhotoGuard</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+    <string>Esta aplicación necesita acceder a tus fotos para mostrar contenido.</string>
 	<key>CFBundleName</key>
-	<string>tutorial</string>
+	<string>photoguard</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+    <string>Esta aplicación necesita acceder a tu galería para mostrar imágenes.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Esta aplicación necesita acceso para guardar imágenes en tu galería.</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>

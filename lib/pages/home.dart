@@ -1,131 +1,197 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:photo_manager/photo_manager.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  List<String> accessibleFolders = [];
+  Map<String, List<File>> folderImages = {};
+  List<AssetEntity> galleryImages = [];
+
+  // Solicita permisos y lista carpetas
+  Future<void> _requestPermissionAndLoadFolders() async {
+    if (Platform.isIOS) {
+      // Solicitar permiso de fotos en iOS
+      final PermissionState result = await PhotoManager.requestPermissionExtend();
+      if (result.isAuth) {
+        _loadDefaultIOSGallery();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permiso no otorgado para acceder a la galería')),
+        );
+      }
+    } else {
+      // Solicitar permiso de almacenamiento en Android
+      var status = await Permission.storage.status;
+      if (status.isDenied || status.isPermanentlyDenied) {
+        await Permission.storage.request();
+      }
+
+      if (await Permission.storage.isGranted) {
+        _loadAndroidFolder();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permiso no otorgado para acceder a archivos')),
+        );
+      }
+    }
+  }
+
+  // Abre un selector de carpetas en Android
+  Future<void> _loadAndroidFolder() async {
+    String? selectedFolder = await FilePicker.platform.getDirectoryPath();
+    if (selectedFolder != null) {
+      _loadImagesFromFolder(selectedFolder);
+    }
+  }
+
+  // Carga imágenes desde una carpeta específica
+  void _loadImagesFromFolder(String folderPath) {
+    final folder = Directory(folderPath);
+    final images = folder
+        .listSync()
+        .whereType<File>()
+        .where((file) =>
+    file.path.endsWith('.jpg') ||
+        file.path.endsWith('.jpeg') ||
+        file.path.endsWith('.png'))
+        .toList();
+
+    setState(() {
+      accessibleFolders.add(folderPath);
+      folderImages[folderPath] = images;
+    });
+  }
+
+  // Cargar imágenes desde la galería en iOS
+  Future<void> _loadDefaultIOSGallery() async {
+    final List<AssetPathEntity> albums = await PhotoManager.getAssetPathList(
+      type: RequestType.image,
+    );
+
+    if (albums.isNotEmpty) {
+      final List<AssetEntity> images = await albums[0].getAssetListPaged(
+        page: 0, // Primera página
+        size: 100, // Máximo 100 imágenes por página
+      );
+      setState(() {
+        galleryImages = images;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Archivos'),
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () {
-              Scaffold.of(context).openDrawer();
-            },
-          ),
-        ),
+        title: const Text('Fotos'),
         actions: [
           IconButton(
-            icon: const CircleAvatar(
-              backgroundImage: NetworkImage('https://media.istockphoto.com/id/1337144146/vector/default-avatar-profile-icon-vector.jpg?s=612x612&w=0&k=20&c=BIbFwuv7FxTWvh5S3vB6bkT0Qv8Vn8N5Ffseq84ClGI='),
-            ),
-            onPressed: () {
-              // Acción al presionar la imagen de usuario
-            },
+            icon: const Icon(Icons.refresh),
+            onPressed: _requestPermissionAndLoadFolders,
           ),
         ],
       ),
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
-          children: <Widget>[
+          children: [
             const DrawerHeader(
               decoration: BoxDecoration(
                 color: Colors.deepPurple,
               ),
               child: Text(
                 'Directorios',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 24),
               ),
             ),
-            ListTile(
-              leading: Icon(Icons.storage, color: Colors.purple),
-              title: Text('Almacenamiento Interno'),
-              onTap: () {},
-            ),
-            ListTile(
-              leading: Icon(Icons.play_arrow, color: Colors.purple),
-              title: Text('Google'),
-              onTap: () {},
-            ),
-            ListTile(
-              leading: Icon(Icons.favorite, color: Colors.purple),
-              title: Text('Microsoft'),
-              onTap: () {},
-            ),
-            ListTile(
-              leading: Icon(Icons.delete, color: Colors.purple),
-              title: Text('Trash'),
-              onTap: () {},
-            ),
-            Divider(),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text('Carpetas'),
-            ),
-            ListTile(
-              leading: Icon(Icons.folder, color: Colors.purple),
-              title: Text('Label 1'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => FilesPage(folderName: 'Label 1'),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.folder, color: Colors.purple),
-              title: Text('Label 2'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => FilesPage(folderName: 'Label 2'),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.folder, color: Colors.purple),
-              title: Text('Label 3'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => FilesPage(folderName: 'Label 3'),
-                  ),
-                );
-              },
-            ),
+            if (Platform.isAndroid) ...accessibleFolders.map((folderPath) {
+              String folderName = folderPath.split('/').last; // Extrae el nombre de la carpeta
+              return ListTile(
+                leading: const Icon(Icons.folder, color: Colors.purple),
+                title: Text(folderName),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => FilesPage(
+                        folderName: folderName,
+                        images: folderImages[folderPath] ?? [],
+                      ),
+                    ),
+                  );
+                },
+              );
+            }).toList(),
           ],
         ),
       ),
-      body: ListView.builder(
-        itemCount: 5,
+      body: Platform.isAndroid
+          ? accessibleFolders.isEmpty
+          ? const Center(
+        child: Text('Presiona el ícono de refrescar para buscar carpetas'),
+      )
+          : ListView.builder(
+        itemCount: accessibleFolders.length,
         itemBuilder: (context, index) {
+          String folderPath = accessibleFolders[index];
+          String folderName = folderPath.split('/').last;
           return Card(
-            margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            margin: const EdgeInsets.symmetric(
+                vertical: 8.0, horizontal: 16.0),
             child: ListTile(
-              leading: Icon(Icons.folder, color: Colors.purple, size: 40),
-              title: Text('Folder $index'),
-              subtitle: Text('Subhead'),
+              leading: const Icon(Icons.folder, color: Colors.purple),
+              title: Text(folderName),
+              subtitle: Text(
+                  '${folderImages[folderPath]?.length ?? 0} imágenes'),
               onTap: () {
-                // Navegar a la página de archivos de la carpeta seleccionada
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => FilesPage(folderName: 'Folder $index'),
+                    builder: (context) => FilesPage(
+                      folderName: folderName,
+                      images: folderImages[folderPath] ?? [],
+                    ),
                   ),
                 );
               },
             ),
+          );
+        },
+      )
+          : galleryImages.isEmpty
+          ? const Center(
+        child: Text('No hay imágenes disponibles.'),
+      )
+          : GridView.builder(
+        padding: const EdgeInsets.all(8.0),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 4.0,
+          mainAxisSpacing: 4.0,
+        ),
+        itemCount: galleryImages.length,
+        itemBuilder: (context, index) {
+          return FutureBuilder<File?>(
+            future: galleryImages[index].file,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.done &&
+                  snapshot.data != null) {
+                return Image.file(
+                  snapshot.data!,
+                  fit: BoxFit.cover,
+                );
+              }
+              return const Center(child: CircularProgressIndicator());
+            },
           );
         },
       ),
@@ -135,37 +201,36 @@ class HomePage extends StatelessWidget {
 
 class FilesPage extends StatelessWidget {
   final String folderName;
+  final List<File> images;
 
-  const FilesPage({super.key, required this.folderName});
+  const FilesPage({super.key, required this.folderName, required this.images});
 
   @override
   Widget build(BuildContext context) {
-    // Lista de archivos simulados para la carpeta seleccionada
-    List<String> files = ['File 1', 'File 2', 'File 3', 'File 4'];
-
     return Scaffold(
       appBar: AppBar(
         title: Text(folderName),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
       ),
-      body: ListView.builder(
-        itemCount: files.length,
+      body: images.isEmpty
+          ? const Center(child: Text('No hay imágenes en esta carpeta.'))
+          : GridView.builder(
+        padding: const EdgeInsets.all(8.0),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 4.0,
+          mainAxisSpacing: 4.0,
+        ),
+        itemCount: images.length,
         itemBuilder: (context, index) {
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-            child: ListTile(
-              leading: Icon(Icons.insert_drive_file, color: Colors.blue, size: 40),
-              title: Text(files[index]),
-              subtitle: Text('Archivo $index'),
-              onTap: () {
-                // Acción al seleccionar un archivo
-              },
-            ),
+          return Image.file(
+            images[index],
+            fit: BoxFit.cover,
           );
         },
       ),

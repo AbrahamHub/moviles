@@ -10,7 +10,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.tutorial"
+    namespace = "com.fime.photoguard"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 

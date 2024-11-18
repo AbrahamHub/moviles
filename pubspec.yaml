@@ -42,12 +42,19 @@ dependencies:
   flutter_dotenv: ^5.0.2
   url_launcher: ^6.3.0
   flutter_web_auth: ^0.6.0
+  permission_handler: ^10.2.0
+  file_picker: ^5.0.0
+  image_picker: ^0.8.7+5
+  photo_manager: ^3.6.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   intl: ^0.17.0
   sqflite: ^2.1.0+1
+  flutter_launcher_icons: ^0.9.3
+
+
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -55,6 +62,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^4.0.0
+
+
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -97,3 +106,7 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/icon.png"
