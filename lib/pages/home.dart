@@ -190,7 +190,6 @@ class _HomePageState extends State<HomePage> {
           }
         }
       } else if (Platform.isIOS) {
-        // Procesamos las imágenes de galleryImages para iOS
         for (var asset in galleryImages) {
           final file = await asset.file;
           if (file != null) {

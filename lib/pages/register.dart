@@ -1,6 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:PhotoGuard/pages/sign_in.dart';
+import 'package:PhotoGuard/pages/home.dart';
 import 'package:PhotoGuard/utils/colors.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -38,7 +38,7 @@ class RegisterPage extends StatelessWidget {
               SizedBox(height: size.height * 0.06),
               _buildDivider(size),
               SizedBox(height: size.height * 0.06),
-              _buildSocialLogin(context),
+              _buildGoogleLoginButton(context),
               SizedBox(height: size.height * 0.07),
               _buildLoginPrompt(context),
             ],
@@ -91,60 +91,37 @@ class RegisterPage extends StatelessWidget {
         final String password = passwordController.text.trim();
         final String confirmPassword = confirmPasswordController.text.trim();
 
-        if (email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Por favor, llena todos los campos')),
-          );
+        final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+        if (!emailRegex.hasMatch(email)) {
+          _showSnackBar(context, 'Introduce un correo válido');
+          return;
+        }
+
+        final passwordRegex = RegExp(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$');
+        if (!passwordRegex.hasMatch(password)) {
+          _showSnackBar(context, 'La contraseña debe tener al menos 8 caracteres, incluyendo un número');
           return;
         }
 
         if (password != confirmPassword) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Las contraseñas no coinciden')),
-          );
+          _showSnackBar(context, 'Las contraseñas no coinciden');
           return;
         }
 
         try {
-          // Registrar al usuario en Firebase Authentication
-          UserCredential userCredential = await FirebaseAuth.instance
-              .createUserWithEmailAndPassword(email: email, password: password);
+          final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+            email: email,
+            password: password,
+          );
 
-          if (userCredential.user != null) {
-            // Guardar información adicional en Firestore
-            await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
-              'email': email,
-            });
+          await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+            'email': email,
+            'provider': 'Email',
+          });
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Usuario registrado exitosamente: $email')),
-            );
-
-            // Navegar a la página de inicio de sesión
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const SignIn()),
-            );
-          }
+          _navigateToHome(context);
         } on FirebaseAuthException catch (e) {
-          String errorMessage;
-          if (e.code == 'email-already-in-use') {
-            errorMessage = 'El correo ya está en uso.';
-          } else if (e.code == 'weak-password') {
-            errorMessage = 'La contraseña es muy débil.';
-          } else if (e.code == 'invalid-email') {
-            errorMessage = 'El correo no tiene un formato válido.';
-          } else {
-            errorMessage = 'Error al registrar: ${e.message}';
-          }
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(errorMessage)),
-          );
-        } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error inesperado: ${e.toString()}')),
-          );
+          _showSnackBar(context, 'Error: ${e.message}');
         }
       },
       child: Container(
@@ -177,7 +154,7 @@ class RegisterPage extends StatelessWidget {
           color: Colors.black12,
         ),
         const Text(
-          "  Continúa con:  ",
+          "  O continúa con:  ",
           style: TextStyle(
             color: Color(0xff6F6B7A),
             fontWeight: FontWeight.bold,
@@ -193,58 +170,45 @@ class RegisterPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSocialLogin(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        GestureDetector(
-          onTap: () async {
-            try {
-              final GoogleSignIn googleSignIn = GoogleSignIn();
-              final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-              if (googleUser == null) return;
+  Widget _buildGoogleLoginButton(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        try {
+          final GoogleSignIn googleSignIn = GoogleSignIn();
+          final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+          if (googleUser == null) return;
 
-              final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+          final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+          final credential = GoogleAuthProvider.credential(
+            accessToken: googleAuth.accessToken,
+            idToken: googleAuth.idToken,
+          );
 
-              final credential = GoogleAuthProvider.credential(
-                accessToken: googleAuth.accessToken,
-                idToken: googleAuth.idToken,
-              );
+          final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
 
-              UserCredential userCredential =
-              await FirebaseAuth.instance.signInWithCredential(credential);
+          await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+            'email': userCredential.user!.email,
+            'provider': 'Google',
+          });
 
-              await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
-                'email': userCredential.user!.email,
-                'provider': 'Google',
-              });
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Inicio de sesión exitoso con Google')),
-              );
-
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const SignIn()),
-              );
-            } catch (e) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Error al iniciar sesión con Google: $e')),
-              );
-            }
-          },
-          child: socialIcon("assets/images/google.png", "Google"),
-        ),
-        GestureDetector(
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Inicio de sesión con Microsoft no está implementado.')),
-            );
-          },
-          child: socialIcon("assets/images/microsoft.png", "Microsoft"),
-        ),
-      ],
+          _navigateToHome(context);
+        } catch (e) {
+          _showSnackBar(context, 'Error al iniciar sesión con Google: ${e.toString()}');
+        }
+      },
+      child: socialIcon("assets/images/google.png", "Iniciar con Google"),
     );
+  }
+
+  void _navigateToHome(BuildContext context) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const HomePage()),
+          (route) => false,
+    );
+  }
+
+  void _showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Widget _buildLoginPrompt(BuildContext context) {
@@ -265,10 +229,7 @@ class RegisterPage extends StatelessWidget {
             ),
             recognizer: TapGestureRecognizer()
               ..onTap = () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SignIn()),
-                );
+                Navigator.pop(context);
               },
           ),
         ],
