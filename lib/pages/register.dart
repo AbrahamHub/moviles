@@ -1,6 +1,5 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:PhotoGuard/pages/home.dart';
 import 'package:PhotoGuard/utils/colors.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -91,37 +90,56 @@ class RegisterPage extends StatelessWidget {
         final String password = passwordController.text.trim();
         final String confirmPassword = confirmPasswordController.text.trim();
 
+        // Validación de correo electrónico
         final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
         if (!emailRegex.hasMatch(email)) {
           _showSnackBar(context, 'Introduce un correo válido');
           return;
         }
 
+        // Validación de contraseña
         final passwordRegex = RegExp(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$');
         if (!passwordRegex.hasMatch(password)) {
-          _showSnackBar(context, 'La contraseña debe tener al menos 8 caracteres, incluyendo un número');
+          _showSnackBar(context,
+              'La contraseña debe tener al menos 8 caracteres, incluyendo un número');
           return;
         }
 
+        // Confirmación de contraseña
         if (password != confirmPassword) {
           _showSnackBar(context, 'Las contraseñas no coinciden');
           return;
         }
 
         try {
+          // Intento de registro en Firebase Auth
           final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
             email: email,
             password: password,
           );
 
-          await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+          // Almacenar información adicional en Firestore
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userCredential.user!.uid)
+              .set({
             'email': email,
             'provider': 'Email',
           });
 
-          _navigateToHome(context);
+          // Mostrar mensaje de bienvenida
+          _showSnackBar(context, '¡Bienvenido, ${userCredential.user!.email}!');
+
+          // Cerrar la pantalla de registro
+          Navigator.of(context).pop();
+
         } on FirebaseAuthException catch (e) {
-          _showSnackBar(context, 'Error: ${e.message}');
+          // Manejo de errores específicos
+          if (e.code == 'email-already-in-use') {
+            _showSnackBar(context, 'El correo electrónico ya está en uso');
+          } else {
+            _showSnackBar(context, 'Error: ${e.message}');
+          }
         }
       },
       child: Container(
@@ -174,9 +192,10 @@ class RegisterPage extends StatelessWidget {
     return GestureDetector(
       onTap: () async {
         try {
+          // Iniciar sesión con Google
           final GoogleSignIn googleSignIn = GoogleSignIn();
           final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-          if (googleUser == null) return;
+          if (googleUser == null) return; // El usuario canceló el inicio de sesión
 
           final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
           final credential = GoogleAuthProvider.credential(
@@ -186,12 +205,22 @@ class RegisterPage extends StatelessWidget {
 
           final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
 
-          await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+          // Almacenar información adicional en Firestore
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userCredential.user!.uid)
+              .set({
             'email': userCredential.user!.email,
             'provider': 'Google',
           });
 
-          _navigateToHome(context);
+          // Mostrar mensaje de bienvenida
+          _showSnackBar(context,
+              '¡Bienvenido, ${userCredential.user!.displayName ?? userCredential.user!.email}!');
+
+          // Cerrar la pantalla de registro
+          Navigator.of(context).pop();
+
         } catch (e) {
           _showSnackBar(context, 'Error al iniciar sesión con Google: ${e.toString()}');
         }
@@ -200,14 +229,8 @@ class RegisterPage extends StatelessWidget {
     );
   }
 
-  void _navigateToHome(BuildContext context) {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const HomePage()),
-          (route) => false,
-    );
-  }
-
   void _showSnackBar(BuildContext context, String message) {
+    // Muestra un SnackBar con el mensaje proporcionado
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 

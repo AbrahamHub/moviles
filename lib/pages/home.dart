@@ -1,12 +1,14 @@
 import 'dart:io';
+import 'dart:convert'; // Para utf8.encode en testUpload
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:PhotoGuard/pages/ProfilePage.dart'; // Asegúrate de ajustar la ruta correcta
+import 'package:PhotoGuard/pages/ProfilePage.dart'; // Ajusta la ruta si es necesario
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,18 +22,27 @@ class _HomePageState extends State<HomePage> {
   Map<String, List<File>> folderImages = {};
   List<AssetEntity> galleryImages = [];
   double _uploadProgress = 0.0;
+  double _downloadProgress = 0.0;
+  List<File> downloadedImages = []; // Lista para almacenar las imágenes descargadas
 
   @override
   void initState() {
     super.initState();
     _initializeFirebase();
+    _requestPermissionAndLoadFolders(); // Cargar imágenes locales automáticamente
   }
 
   Future<void> _initializeFirebase() async {
     await Firebase.initializeApp();
     User? user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      await FirebaseAuth.instance.signInAnonymously();
+      try {
+        UserCredential userCredential = await FirebaseAuth.instance.signInAnonymously();
+        user = userCredential.user;
+        print('Usuario autenticado: ${user?.uid}');
+      } catch (e) {
+        print('Error durante la autenticación anónima: $e');
+      }
     }
   }
 
@@ -42,6 +53,7 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Permiso de fotos concedido')),
         );
+        _loadDefaultIOSGallery();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Permiso de fotos denegado')),
@@ -57,6 +69,7 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Permiso de almacenamiento concedido')),
         );
+        _loadAndroidFolders();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Permiso de almacenamiento denegado')),
@@ -82,7 +95,7 @@ class _HomePageState extends State<HomePage> {
       }
 
       if (await Permission.storage.isGranted) {
-        _loadAndroidFolder();
+        _loadAndroidFolders();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Permiso no otorgado para acceder a archivos')),
@@ -91,10 +104,19 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _loadAndroidFolder() async {
-    String? selectedFolder = await FilePicker.platform.getDirectoryPath();
-    if (selectedFolder != null) {
-      _loadImagesFromFolder(selectedFolder);
+  Future<void> _loadAndroidFolders() async {
+    // Obtener directorios comunes de imágenes en Android
+    List<Directory> directories = [
+      Directory('/storage/emulated/0/DCIM/Camera'),
+      Directory('/storage/emulated/0/Pictures'),
+      Directory('/storage/emulated/0/Download'),
+      // Agrega otros directorios comunes si lo deseas
+    ];
+
+    for (var dir in directories) {
+      if (await dir.exists()) {
+        _loadImagesFromFolder(dir.path);
+      }
     }
   }
 
@@ -104,9 +126,9 @@ class _HomePageState extends State<HomePage> {
         .listSync()
         .whereType<File>()
         .where((file) =>
-    file.path.endsWith('.jpg') ||
-        file.path.endsWith('.jpeg') ||
-        file.path.endsWith('.png'))
+    file.path.toLowerCase().endsWith('.jpg') ||
+        file.path.toLowerCase().endsWith('.jpeg') ||
+        file.path.toLowerCase().endsWith('.png'))
         .toList();
 
     setState(() {
@@ -160,7 +182,10 @@ class _HomePageState extends State<HomePage> {
 
       final userId = user.uid;
       final storage = FirebaseStorage.instanceFor(
-          bucket: 'gs://photoguard-e9739.firebasestorage.app');
+        bucket: 'gs://photoguard-e9739.firebasestorage.app', // Bucket corregido
+      );
+
+      print('Iniciando copia de seguridad para el usuario $userId');
 
       int totalImages = Platform.isAndroid
           ? folderImages.values.fold(0, (sum, list) => sum + list.length)
@@ -168,47 +193,68 @@ class _HomePageState extends State<HomePage> {
       int uploadedImages = 0;
 
       if (Platform.isAndroid) {
-        // Procesamos las imágenes de folderImages para Android
         for (var folder in folderImages.values) {
           for (var image in folder) {
-            final fileName = image.path.split('/').last;
-            final ref = storage.ref('$userId/$fileName');
+            if (await image.exists()) {
+              final fileName = path.basename(image.path);
+              final ref = storage.ref().child('$userId/$fileName');
 
-            UploadTask uploadTask = ref.putFile(image);
+              print('Subiendo archivo: ${image.path} a ${ref.fullPath}');
 
-            uploadTask.snapshotEvents.listen((event) {
-              setState(() {
-                _uploadProgress = (uploadedImages +
-                    event.bytesTransferred / event.totalBytes) /
-                    totalImages;
-              });
-            });
+              try {
+                UploadTask uploadTask = ref.putFile(image);
 
-            await uploadTask;
+                uploadTask.snapshotEvents.listen((event) {
+                  setState(() {
+                    _uploadProgress = (uploadedImages +
+                        event.bytesTransferred / event.totalBytes) /
+                        totalImages;
+                  });
+                });
 
-            uploadedImages++;
+                await uploadTask;
+
+                print('Archivo subido: $fileName');
+
+                uploadedImages++;
+              } catch (e) {
+                print('Error al subir el archivo $fileName: $e');
+              }
+            } else {
+              print('El archivo no existe: ${image.path}');
+            }
           }
         }
       } else if (Platform.isIOS) {
         for (var asset in galleryImages) {
           final file = await asset.file;
-          if (file != null) {
-            final fileName = file.path.split('/').last;
-            final ref = storage.ref('$userId/$fileName');
+          if (file != null && await file.exists()) {
+            final fileName = path.basename(file.path);
+            final ref = storage.ref().child('$userId/$fileName');
 
-            UploadTask uploadTask = ref.putFile(file);
+            print('Subiendo archivo: ${file.path} a ${ref.fullPath}');
 
-            uploadTask.snapshotEvents.listen((event) {
-              setState(() {
-                _uploadProgress = (uploadedImages +
-                    event.bytesTransferred / event.totalBytes) /
-                    totalImages;
+            try {
+              UploadTask uploadTask = ref.putFile(file);
+
+              uploadTask.snapshotEvents.listen((event) {
+                setState(() {
+                  _uploadProgress = (uploadedImages +
+                      event.bytesTransferred / event.totalBytes) /
+                      totalImages;
+                });
               });
-            });
 
-            await uploadTask;
+              await uploadTask;
 
-            uploadedImages++;
+              print('Archivo subido: $fileName');
+
+              uploadedImages++;
+            } catch (e) {
+              print('Error al subir el archivo $fileName: $e');
+            }
+          } else {
+            print('El archivo no existe o no se pudo obtener: ${asset.id}');
           }
         }
       }
@@ -216,7 +262,10 @@ class _HomePageState extends State<HomePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Copia de seguridad completada')),
       );
+
+      print('Copia de seguridad completada');
     } catch (e) {
+      print('Error durante la copia de seguridad: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error durante la copia de seguridad: $e')),
       );
@@ -227,17 +276,131 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _restoreImagesFromFirebase() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Usuario no autenticado')),
+        );
+        return;
+      }
+
+      final userId = user.uid;
+      final storage = FirebaseStorage.instanceFor(
+        bucket: 'gs://photoguard-e9739.firebasestorage.app', // Bucket corregido
+      );
+
+      print('Obteniendo la lista de archivos en Firebase Storage para el usuario $userId');
+
+      final ListResult result = await storage.ref().child(userId).listAll();
+
+      print('Número de archivos encontrados: ${result.items.length}');
+
+      if (result.items.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No hay imágenes respaldadas')),
+        );
+        return;
+      }
+
+      int totalFiles = result.items.length;
+      int downloadedFiles = 0;
+
+      List<File> tempImages = [];
+
+      for (var ref in result.items) {
+        try {
+          final fileName = ref.name;
+
+          // Obtener el directorio temporal o de aplicación para almacenar las imágenes
+          final Directory appDocDir = await getApplicationDocumentsDirectory();
+          final String filePath = path.join(appDocDir.path, 'restored_images', fileName);
+          final File file = File(filePath);
+
+          // Crear el directorio si no existe
+          await file.parent.create(recursive: true);
+
+          // Descargar el archivo desde Firebase Storage
+          print('Descargando archivo: ${ref.fullPath}');
+          await ref.writeToFile(file);
+
+          tempImages.add(file);
+
+          downloadedFiles++;
+
+          setState(() {
+            _downloadProgress = downloadedFiles / totalFiles;
+          });
+        } catch (e) {
+          print('Error al descargar el archivo ${ref.fullPath}: $e');
+          continue;
+        }
+      }
+
+      setState(() {
+        downloadedImages = tempImages;
+        _downloadProgress = 0.0;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Imágenes restauradas exitosamente')),
+      );
+    } catch (e) {
+      print('Error al restaurar imágenes: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al restaurar imágenes: $e')),
+      );
+    }
+  }
+
+  // Función de prueba para subir un archivo simple
+  Future<void> testUpload() async {
+    try {
+      final storage = FirebaseStorage.instanceFor(
+        bucket: 'gs://photoguard-e9739.firebasestorage.app', // Bucket corregido
+      );
+      final userId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown_user';
+      final ref = storage.ref().child('$userId/test.txt');
+      final data = utf8.encode('Contenido de prueba');
+      await ref.putData(data);
+      print('Archivo de prueba subido exitosamente.');
+    } catch (e) {
+      print('Error al subir el archivo de prueba: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    List<Widget> imageWidgets = [];
+
+    // Imágenes locales en Android
+    if (Platform.isAndroid) {
+      folderImages.forEach((folderPath, images) {
+        imageWidgets.addAll(images.map((file) => Image.file(file, fit: BoxFit.cover)));
+      });
+    } else if (Platform.isIOS) {
+      // Imágenes locales en iOS
+      imageWidgets.addAll(galleryImages.map((asset) {
+        return FutureBuilder<File?>(
+          future: asset.file,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.done && snapshot.data != null) {
+              return Image.file(snapshot.data!, fit: BoxFit.cover);
+            }
+            return const Center(child: CircularProgressIndicator());
+          },
+        );
+      }));
+    }
+
+    // Añadir imágenes descargadas de Firebase Storage
+    imageWidgets.addAll(downloadedImages.map((file) => Image.file(file, fit: BoxFit.cover)));
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Fotos'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _requestPermissionAndLoadFolders,
-          ),
-        ],
       ),
       drawer: Drawer(
         child: ListView(
@@ -302,98 +465,23 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.all(16.0),
                 child: LinearProgressIndicator(value: _uploadProgress),
               ),
+            ListTile(
+              leading: const Icon(Icons.restore, color: Colors.orange),
+              title: const Text('Recuperar copia de seguridad'),
+              onTap: _restoreImagesFromFirebase,
+            ),
+            if (_downloadProgress > 0)
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: LinearProgressIndicator(value: _downloadProgress),
+              ),
           ],
         ),
       ),
-      body: Platform.isAndroid
-          ? accessibleFolders.isEmpty
+      body: imageWidgets.isEmpty
           ? const Center(
-        child: Text('Presiona el ícono de refrescar para buscar carpetas'),
+        child: Text('No se encontraron imágenes o no se concedieron permisos'),
       )
-          : ListView.builder(
-        itemCount: accessibleFolders.length,
-        itemBuilder: (context, index) {
-          String folderPath = accessibleFolders[index];
-          String folderName = folderPath.split('/').last;
-          return Card(
-            margin: const EdgeInsets.symmetric(
-                vertical: 8.0, horizontal: 16.0),
-            child: ListTile(
-              leading: const Icon(Icons.folder, color: Colors.purple),
-              title: Text(folderName),
-              subtitle: Text(
-                  '${folderImages[folderPath]?.length ?? 0} imágenes'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => FilesPage(
-                      folderName: folderName,
-                      images: folderImages[folderPath] ?? [],
-                    ),
-                  ),
-                );
-              },
-            ),
-          );
-        },
-      )
-          : galleryImages.isEmpty
-          ? const Center(
-        child:
-        Text('Presiona el ícono de refrescar para cargar imágenes'),
-      )
-          : GridView.builder(
-        padding: const EdgeInsets.all(8.0),
-        gridDelegate:
-        const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          crossAxisSpacing: 4.0,
-          mainAxisSpacing: 4.0,
-        ),
-        itemCount: galleryImages.length,
-        itemBuilder: (context, index) {
-          return FutureBuilder<File?>(
-            future: galleryImages[index].file,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState ==
-                  ConnectionState.done &&
-                  snapshot.data != null) {
-                return Image.file(
-                  snapshot.data!,
-                  fit: BoxFit.cover,
-                );
-              }
-              return const Center(
-                  child: CircularProgressIndicator());
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-class FilesPage extends StatelessWidget {
-  final String folderName;
-  final List<File> images;
-
-  const FilesPage({super.key, required this.folderName, required this.images});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(folderName),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-      ),
-      body: images.isEmpty
-          ? const Center(child: Text('No hay imágenes en esta carpeta.'))
           : GridView.builder(
         padding: const EdgeInsets.all(8.0),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -401,20 +489,11 @@ class FilesPage extends StatelessWidget {
           crossAxisSpacing: 4.0,
           mainAxisSpacing: 4.0,
         ),
-        itemCount: images.length,
+        itemCount: imageWidgets.length,
         itemBuilder: (context, index) {
-          return Image.file(
-            images[index],
-            fit: BoxFit.cover,
-          );
+          return imageWidgets[index];
         },
       ),
     );
   }
-}
-
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  runApp(const MaterialApp(home: HomePage()));
 }

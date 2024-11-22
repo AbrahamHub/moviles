@@ -25,27 +25,37 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      // Gestiona la navegación basada en el estado de autenticación
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          // Si el estado está cargándose, muestra un indicador de carga
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          // Si hay un usuario autenticado, redirige a HomePage
-          if (snapshot.hasData) {
-            return const HomePage(); // Redirige al Home
-          }
-
-          // Si no hay usuario autenticado, muestra la pantalla inicial (Splash/Login)
-          return const MySplashScreen();
-        },
-      ),
+      home: const AuthWrapper(),
       routes: {
         '/home': (context) => const HomePage(),
         '/splash': (context) => const MySplashScreen(),
+      },
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // Si el estado está cargándose, muestra un indicador de carga
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        // Si hay un usuario autenticado, redirige a HomePage
+        if (snapshot.hasData) {
+          return const HomePage();
+        }
+
+        // Si no hay usuario autenticado, muestra la pantalla inicial (Splash/Login)
+        return const MySplashScreen();
       },
     );
   }

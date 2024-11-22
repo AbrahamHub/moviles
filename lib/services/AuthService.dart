@@ -40,20 +40,4 @@ class AuthService {
       return null;
     }
   }
-
-  // Inicio de sesión con Microsoft (OAuth)
-  Future<UserModel?> signInWithMicrosoft(String authUrl, String clientId, String redirectUri) async {
-    try {
-      final result = await FlutterWebAuth.authenticate(
-        url: authUrl,
-        callbackUrlScheme: "msauth",
-      );
-      // Procesar el token devuelto por Microsoft
-      // ...
-      return UserModel(uid: "microsoft_uid", email: "user@microsoft.com");
-    } catch (e) {
-      print(e);
-      return null;
-    }
-  }
 }
